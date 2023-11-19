@@ -28,11 +28,17 @@ import com.drew.lang.SequentialReader;
 import com.drew.lang.annotations.NotNull;
 import com.drew.lang.annotations.Nullable;
 import com.drew.metadata.Metadata;
-import com.drew.metadata.mp4.media.*;
+import com.drew.metadata.mp4.media.Mp4HintHandler;
+import com.drew.metadata.mp4.media.Mp4MetaHandler;
+import com.drew.metadata.mp4.media.Mp4SoundHandler;
+import com.drew.metadata.mp4.media.Mp4TextHandler;
+import com.drew.metadata.mp4.media.Mp4UuidBoxHandler;
+import com.drew.metadata.mp4.media.Mp4VideoHandler;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -42,23 +48,19 @@ import static com.drew.metadata.mp4.Mp4Directory.TAG_LONGITUDE;
 /**
  * @author Payton Garland
  */
-public class Mp4BoxHandler extends Mp4Handler<Mp4Directory>
-{
-    public Mp4BoxHandler(Metadata metadata)
-    {
+public class Mp4BoxHandler extends Mp4Handler<Mp4Directory> {
+    public Mp4BoxHandler(Metadata metadata) {
         super(metadata);
     }
 
     @NotNull
     @Override
-    protected Mp4Directory getDirectory()
-    {
+    protected Mp4Directory getDirectory() {
         return new Mp4Directory();
     }
 
     @Override
-    public boolean shouldAcceptBox(@NotNull String type)
-    {
+    public boolean shouldAcceptBox(@NotNull String type) {
         return type.equals(Mp4BoxTypes.BOX_FILE_TYPE)
             || type.equals(Mp4BoxTypes.BOX_MOVIE_HEADER)
             || type.equals(Mp4BoxTypes.BOX_HANDLER)
@@ -69,8 +71,7 @@ public class Mp4BoxHandler extends Mp4Handler<Mp4Directory>
     }
 
     @Override
-    public boolean shouldAcceptContainer(@NotNull String type)
-    {
+    public boolean shouldAcceptContainer(@NotNull String type) {
         return type.equals(Mp4ContainerTypes.BOX_TRACK)
             || type.equals(Mp4ContainerTypes.BOX_METADATA)
             || type.equals(Mp4ContainerTypes.BOX_MOVIE)
@@ -78,8 +79,7 @@ public class Mp4BoxHandler extends Mp4Handler<Mp4Directory>
     }
 
     @Override
-    public Mp4Handler<?> processBox(@NotNull String type, @Nullable byte[] payload, long boxSize, Mp4Context context) throws IOException
-    {
+    public Mp4Handler<?> processBox(@NotNull String type, @Nullable byte[] payload, long boxSize, Mp4Context context) throws IOException {
         if (payload != null) {
             SequentialReader reader = new SequentialByteArrayReader(payload);
             if (type.equals(Mp4BoxTypes.BOX_MOVIE_HEADER)) {
@@ -97,13 +97,13 @@ public class Mp4BoxHandler extends Mp4Handler<Mp4Directory>
                 reader.skip(4); // Pre-defined
                 String handlerType = reader.getString(4);
                 reader.skip(12); // Reserved
-                String name = reader.getNullTerminatedString((int)boxSize - 32, Charset.defaultCharset());
+                String name = reader.getNullTerminatedString((int) boxSize - 32, Charset.defaultCharset());
 
-                final String HANDLER_SOUND_MEDIA             = "soun";
-                final String HANDLER_VIDEO_MEDIA             = "vide";
-                final String HANDLER_HINT_MEDIA              = "hint";
-                final String HANDLER_TEXT_MEDIA              = "text";
-                final String HANDLER_META_MEDIA              = "meta";
+                final String HANDLER_SOUND_MEDIA = "soun";
+                final String HANDLER_VIDEO_MEDIA = "vide";
+                final String HANDLER_HINT_MEDIA = "hint";
+                final String HANDLER_TEXT_MEDIA = "text";
+                final String HANDLER_META_MEDIA = "meta";
 
                 if (handlerType.equals(HANDLER_SOUND_MEDIA)) {
                     return new Mp4SoundHandler(metadata, context);
@@ -137,25 +137,18 @@ public class Mp4BoxHandler extends Mp4Handler<Mp4Directory>
 
     private static final Pattern COORDINATE_PATTERN = Pattern.compile("([+-]\\d+\\.\\d+)([+-]\\d+\\.\\d+)");
 
-    private void processUserData(@NotNull SequentialReader reader, int length) throws IOException
-    {
-        final int LOCATION_CODE = 0xA978797A; // "©xyz"
+    private void processUserData(@NotNull SequentialReader reader, int length) throws IOException {
 
         String coordinateString = null;
 
         while (reader.getPosition() < length) {
-            long size = reader.getUInt32();
-            if (size <= 4)
-                break;
-            int kind = reader.getInt32();
-            if (kind == LOCATION_CODE) {
-                int xyzLength = reader.getUInt16();
-                reader.skip(2);
-                coordinateString = reader.getString(xyzLength, "UTF-8");
-            } else if (size >= 8) {
-                reader.skip(size - 8);
-            } else {
-                return;
+            Box box = new Box(reader);
+            if (box.type.equals("modl")) {
+                directory.setString(Mp4Directory.TAG_CAMERA_MODEL_NAME, box.value);
+            }else if (box.type.equals("�mod")) {
+                directory.setString(Mp4Directory.TAG_MODEL, box.value);
+            } else if (box.type.equals("©xyz")) {
+                coordinateString = box.value;
             }
         }
 
@@ -171,8 +164,21 @@ public class Mp4BoxHandler extends Mp4Handler<Mp4Directory>
         }
     }
 
-    private void processFileType(@NotNull SequentialReader reader, long boxSize) throws IOException
-    {
+    class Box {
+        private final int size;
+        private final String type;
+        private final String value;
+
+        public Box(SequentialReader reader) throws IOException {
+
+            this.size = reader.getInt32();
+            this.type = reader.getString(4, "UTF-8");
+            this.value = new String(reader.getBytes(size - 8)).trim();
+        }
+    }
+
+
+    private void processFileType(@NotNull SequentialReader reader, long boxSize) throws IOException {
         // ISO/IED 14496-12:2015 pg.8
 
         String majorBrand = reader.getString(4);
@@ -189,8 +195,7 @@ public class Mp4BoxHandler extends Mp4Handler<Mp4Directory>
         directory.setStringArray(Mp4Directory.TAG_COMPATIBLE_BRANDS, compatibleBrands.toArray(new String[compatibleBrands.size()]));
     }
 
-    private void processMovieHeader(@NotNull SequentialReader reader) throws IOException
-    {
+    private void processMovieHeader(@NotNull SequentialReader reader) throws IOException {
         // ISO/IED 14496-12:2015 pg.23
 
         short version = reader.getUInt8();
@@ -256,8 +261,7 @@ public class Mp4BoxHandler extends Mp4Handler<Mp4Directory>
         directory.setLong(Mp4Directory.TAG_NEXT_TRACK_ID, nextTrackID);
     }
 
-    private void processMediaHeader(@NotNull SequentialReader reader, Mp4Context context) throws IOException
-    {
+    private void processMediaHeader(@NotNull SequentialReader reader, Mp4Context context) throws IOException {
         // ISO/IED 14496-12:2015 pg.7
 
         int version = reader.getUInt8();
@@ -269,7 +273,7 @@ public class Mp4BoxHandler extends Mp4Handler<Mp4Directory>
         if (version == 1) {
             context.creationTime = reader.getInt64();
             context.modificationTime = reader.getInt64();
-            context.timeScale = (long)reader.getInt32();
+            context.timeScale = (long) reader.getInt32();
             context.duration = reader.getInt64();
         } else {
             context.creationTime = reader.getUInt32();
@@ -282,14 +286,13 @@ public class Mp4BoxHandler extends Mp4Handler<Mp4Directory>
 
         context.language = new String(new char[]
             {
-                (char)(((languageBits & 0x7C00) >> 10) + 0x60),
-                (char)(((languageBits & 0x03E0) >> 5) + 0x60),
-                (char)((languageBits & 0x001F) + 0x60)
+                (char) (((languageBits & 0x7C00) >> 10) + 0x60),
+                (char) (((languageBits & 0x03E0) >> 5) + 0x60),
+                (char) ((languageBits & 0x001F) + 0x60)
             });
     }
 
-    private void processTrackHeader(@NotNull SequentialReader reader) throws IOException
-    {
+    private void processTrackHeader(@NotNull SequentialReader reader) throws IOException {
         // ISO/IED 14496-12:2015 pg.7
 
         int version = reader.getUInt8();

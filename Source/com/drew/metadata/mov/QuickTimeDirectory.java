@@ -57,6 +57,8 @@ public class QuickTimeDirectory extends Directory {
 
     public static final int TAG_ADOBE_XMP                               = 0x3000;
 
+    public static final int TAG_MODEL                                   = 0x051E;
+
     @NotNull
     private static final HashMap<Integer, String> _tagNameMap = new HashMap<Integer, String>();
 
@@ -86,6 +88,7 @@ public class QuickTimeDirectory extends Directory {
         _tagNameMap.put(TAG_CANON_THUMBNAIL_DT, "Canon Thumbnail DateTime");
 
         _tagNameMap.put(TAG_ADOBE_XMP, "Adobe Bridge XMP");
+        _tagNameMap.put(TAG_MODEL, "Model");
     }
 
     public QuickTimeDirectory()

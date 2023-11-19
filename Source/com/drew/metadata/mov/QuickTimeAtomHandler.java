@@ -60,7 +60,8 @@ public class QuickTimeAtomHandler extends QuickTimeHandler<QuickTimeDirectory>
             || atom.type.equals(QuickTimeAtomTypes.ATOM_MEDIA_HEADER)
             || atom.type.equals(QuickTimeAtomTypes.ATOM_CANON_THUMBNAIL)
             || atom.type.equals(QuickTimeAtomTypes.ATOM_ADOBE_XMP)
-            || atom.type.equals(QuickTimeAtomTypes.ATOM_TRACK_HEADER);
+            || atom.type.equals(QuickTimeAtomTypes.ATOM_TRACK_HEADER)
+            || atom.type.equals(QuickTimeAtomTypes.ATOM_MODEL);
     }
 
     @Override
@@ -98,6 +99,8 @@ public class QuickTimeAtomHandler extends QuickTimeHandler<QuickTimeDirectory>
             } else if (atom.type.equals(QuickTimeAtomTypes.ATOM_TRACK_HEADER)) {
                 TrackHeaderAtom trackHeaderAtom = new TrackHeaderAtom(reader, atom);
                 trackHeaderAtom.addMetadata(directory);
+            } else if (atom.type.equals(QuickTimeAtomTypes.ATOM_MODEL)) {
+                new ModelAtom(reader, atom).addMetadata(directory);
             }
         } else {
             if (atom.type.equals(QuickTimeContainerTypes.ATOM_COMPRESSED_MOVIE)) {

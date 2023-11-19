@@ -50,6 +50,8 @@ public class Mp4Directory extends Directory {
     public static final int TAG_MAJOR_BRAND                             = 1;
     public static final int TAG_MINOR_VERSION                           = 2;
     public static final int TAG_COMPATIBLE_BRANDS                       = 3;
+    public static final int TAG_MODEL                                   = 4;
+    public static final int TAG_CAMERA_MODEL_NAME                       = 5;
 
     @NotNull
     private static final HashMap<Integer, String> _tagNameMap = new HashMap<Integer, String>();
@@ -80,6 +82,8 @@ public class Mp4Directory extends Directory {
         _tagNameMap.put(TAG_LONGITUDE, "Longitude");
 
         _tagNameMap.put(TAG_MEDIA_TIME_SCALE, "Media Time Scale");
+        _tagNameMap.put(TAG_MODEL, "Model");
+        _tagNameMap.put(TAG_CAMERA_MODEL_NAME, "Camera Model Name");
     }
 
     public Mp4Directory()
